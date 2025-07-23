@@ -3,20 +3,18 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trai
 from datasets import Dataset
 from sklearn.model_selection import train_test_split
 import numpy
-import evaluate
+from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 
-df_RHMD = pandas.read_csv("training-data/RHMD_Cleaned.csv")
-df_random = pandas.read_csv("training-data/random_posts.csv")
+df = pandas.read_csv("training-data/random_posts.csv", sep="|")
+df = df.drop(['sub', 'year', 'symptoms'], axis=1)
 
-# Combine two data sources to one set
-frames = [df_RHMD, df_random]
-df = pandas.concat(frames)
-
-# Randomly shuffle data
-df_shuffled = df.sample(frac=1).reset_index(drop=True)
+# Undersample 
+df_minority = df[df['label'] == 1]
+df_majority = df[df['label'] == 0].sample(n=len(df_minority)*2, random_state=42)  # 2:1 ratio
+df_balanced = pandas.concat([df_minority, df_majority])
 
 # Split data into test and train sets
-df_train, df_test = train_test_split(df_shuffled, test_size=0.2)
+df_train, df_test = train_test_split(df_balanced, test_size=0.2)
 
 # Convert to dataset object
 train = Dataset.from_pandas(df_train)
@@ -25,19 +23,28 @@ test = Dataset.from_pandas(df_test)
 #Tokenize data
 tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased")
 data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
 def tokenize(examples):
-    return tokenizer(examples["text"], truncation=True)
+    return tokenizer(examples["text"], truncation=True, padding=True)
 
 tokenized_train = train.map(tokenize, batched=True)
 tokenized_test = test.map(tokenize, batched=True)
 
 # Set up evalutation
-accuracy = evaluate.load("accuracy")
+# accuracy = evaluate.load("accuracy")
 
 def metrics(eval_pred):
     predictions, labels = eval_pred
     predictions = numpy.argmax(predictions, axis=1)
-    return accuracy.compute(predictions=predictions, references=labels)
+    acc = accuracy_score(labels, predictions)
+    precision, recall, f1, _ = precision_recall_fscore_support(labels, predictions, average='binary', zero_division=0)
+    return {
+        'accuracy': acc,
+        'precision': precision,
+        'recall': recall,
+        'f1': f1
+    }
+
 
 # Labels
 id2label = {0: "NEGATIVE", 1: "POSITIVE"}
@@ -46,8 +53,17 @@ label2id = {"NEGATIVE": 0, "POSITIVE": 1}
 model = AutoModelForSequenceClassification.from_pretrained("distilbert/distilbert-base-uncased", num_labels=2, id2label=id2label, label2id=label2id)
 
 training_args = TrainingArguments(
-    output_dir="post_classifier",
+    output_dir="./results",
     eval_strategy="epoch",
+    save_strategy="epoch",
+    save_total_limit=2,
+    learning_rate=2e-5,
+    num_train_epochs=4,
+    weight_decay=0.01,
+    load_best_model_at_end=True,
+    metric_for_best_model="f1",
+    logging_dir="./logs",
+    logging_steps=10
 )
 
 trainer = Trainer(
@@ -61,3 +77,5 @@ trainer = Trainer(
 )
 
 trainer.train()
+
+trainer.save_model("./post_classifier")

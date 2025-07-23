@@ -23,14 +23,15 @@ def gather_posts(country, region, end):
 
     date_end = datetime.strptime(end, "%Y-%m-%d")
     date_start = date_end - timedelta(days=30)
-    start = datetime.strftime(date_start, "%Y-%m-%d")
+    start = datetime.strftime(date_start, "%Y-%m-%d") + "T00%3A00"
+    end = end + "T00%3A00"
 
     base_url = "https://arctic-shift.photon-reddit.com/api/posts/search"
     posts = []
 
     for state in states:
         sub = state_subreddits[state]
-        url = base_url + "?subreddit=" + sub + "&after=" + start + "&before=" + end + "&limit=40"
+        url = base_url + "?subreddit=" + sub + "&after=" + start + "&before=" + end + "&limit=100"
 
         try:
             response = requests.get(url, timeout=10)
@@ -39,13 +40,10 @@ def gather_posts(country, region, end):
 
             for post in data:
                 text = post.get("selftext", "")
-                if text and text != "[removed]":
+                if text and text != "[removed]" and text != "[deleted]":
                     posts.append(text)
 
         except requests.exceptions.RequestException as e:
             print(f"Error fetching from {sub}: {e}")
 
     return posts
-
-posts = gather_posts("us", 1, "2022-04-02")
-print(posts)
