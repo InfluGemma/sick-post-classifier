@@ -1,6 +1,7 @@
 import pandas
 import os, sys
 import random
+import re
 from datetime import datetime, timedelta
 import requests
 import numpy as np
@@ -15,6 +16,7 @@ state_subreddits = state_subreddits
 posts = []
 base_url = "https://arctic-shift.photon-reddit.com/api/posts/search"
 symptoms = ['flu', 'influenza', 'fever', 'headache', 'sick', 'cough', 'symptom', 'virus']
+url_pattern = r'https?:\/\/\S*'
 
 
 # Grab 100 posts from random subredits
@@ -28,9 +30,9 @@ while len(posts) < 100:
     end_str = end.strftime("%Y-%m-%d") + "T00%3A00"
 
     sub = random.choice(list(state_subreddits.values()))
-    symptom = random.choice(list(symptoms))
+    # symptom = random.choice(list(symptoms))
 
-    url = base_url + "?subreddit=" + sub + "&after=" + start_str + "&before=" + end_str + "&selftext=" + symptom + "&limit=20" 
+    url = base_url + "?subreddit=" + sub + "&after=" + start_str + "&before=" + end_str + "&limit=20" 
 
     try:
         response = requests.get(url, timeout=10)
@@ -40,14 +42,16 @@ while len(posts) < 100:
         for post in data:
             text = post.get("selftext", "")
             if text and text != "[removed]" and text != "[deleted]":
+                # clean up post and limit to 350 characters
+                text = re.sub(url_pattern, "", text).replace('\n', "")[:350]
                 posts.append((text, sub, start_year))
-        print(f"Got {symptom} posts from {sub}, now at {str(len(posts))}")
+        print(f"Got {symptom} posts from {sub} in {start_year}, now at {str(len(posts))}")
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching from {sub}")
 
 df = pandas.DataFrame(posts, columns=['text', 'sub', 'year'])
-df['symptoms'] = df['text'].str.contains('|'.join(symptoms), na=False)
+df['symptoms'] = df['text'].str.contains('|'.join(symptoms), na=False, case=False)
 print(df)
 
 # Add label for dataset
