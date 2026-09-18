@@ -5,13 +5,12 @@ import os, sys
 import random
 
 
-path = os.path.dirname(os.path.abspath('../helper/states.py'))
+path = os.path.dirname(os.path.abspath('../../sick-post-classifier/helper/states.py'))
 if path not in sys.path:
     sys.path.append(path)
 
 
-from states import aus_states, us_regions
-from subreddits import state_subreddits
+from states import aus_states, us_regions, state_subreddits
 
 # dates should be YYYY-MM-DD
 
@@ -34,7 +33,7 @@ def gather_posts(country, region, end):
         url = base_url + "?subreddit=" + sub + "&after=" + start + "&before=" + end + "&limit=100"
 
         try:
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=5)
             response.raise_for_status()
             data = response.json().get("data", [])
 

@@ -15,7 +15,7 @@ if path not in sys.path:
 from posts import gather_posts
 
 # Load trained model and tokenizer
-model_name = "./post_classifier"
+model_name = "/srv/scratch/z5397970/post_classifier"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForSequenceClassification.from_pretrained(model_name)
 model.eval()
@@ -23,7 +23,7 @@ model.eval()
 def classify_flu_posts(posts, batch_size=16):
     flu_related_count = 0
     total = len(posts)
-    print(total)
+
 
     for i in range(0, total, batch_size):
         batch = posts[i:i+batch_size]
@@ -35,11 +35,7 @@ def classify_flu_posts(posts, batch_size=16):
             preds = torch.argmax(probs, dim=1)
 
         flu_related_count += (preds == 1).sum().item()
-    print(flu_related_count)
+
     flu_percent = flu_related_count / total * 100
     return flu_percent
 
-posts = gather_posts("us", 9, "2022-04-02")
-
-test = classify_flu_posts(posts)
-print(test)

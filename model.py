@@ -7,10 +7,10 @@ from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 
 df = pandas.read_csv("training-data/random_posts.csv", sep="|")
 df = df.drop(['sub', 'year', 'symptoms'], axis=1)
-
+df = df.dropna()
 # Undersample 
 df_minority = df[df['label'] == 1]
-df_majority = df[df['label'] == 0].sample(n=len(df_minority)*2, random_state=42)  # 2:1 ratio
+df_majority = df[df['label'] == 0].sample(n=len(df_minority)*3, random_state=42)  # 3:1 ratio
 df_balanced = pandas.concat([df_minority, df_majority])
 
 # Split data into test and train sets
@@ -53,7 +53,7 @@ label2id = {"NEGATIVE": 0, "POSITIVE": 1}
 model = AutoModelForSequenceClassification.from_pretrained("distilbert/distilbert-base-uncased", num_labels=2, id2label=id2label, label2id=label2id)
 
 training_args = TrainingArguments(
-    output_dir="./results",
+    output_dir="/srv/scratch/z5397970/results",
     eval_strategy="epoch",
     save_strategy="epoch",
     save_total_limit=2,
@@ -76,6 +76,7 @@ trainer = Trainer(
     compute_metrics=metrics,
 )
 
+
 trainer.train()
 
-trainer.save_model("./post_classifier")
+trainer.save_model("/srv/scratch/z5397970/post_classifier")
